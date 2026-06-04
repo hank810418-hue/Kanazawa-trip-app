@@ -1,0 +1,1 @@
+# Kanazawa-trip-app
