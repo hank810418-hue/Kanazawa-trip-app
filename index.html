@@ -14,7 +14,6 @@
             theme: {
                 extend: {
                     colors: {
-                        // 加賀友禪風格配色
                         yuzen: {
                             indigo: '#1c1c3c',
                             red: '#b83b5e',
@@ -81,6 +80,7 @@
             <div class="header-curve p-4 pb-24 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] transition-colors duration-500" :style="`background-color: ${currentDateInfo.bgColor}`">
                 
                 <div v-show="currentTab === 'itinerary'">
+                    
                     <div class="flex overflow-x-auto hide-scrollbar mb-4 pb-2 border-b border-gray-200">
                         <div v-for="(day, index) in itinerary" :key="index" @click="activeDayIndex = index" class="flex flex-col items-center justify-center min-w-[60px] mx-1 py-1 cursor-pointer date-tab" :class="{'active': activeDayIndex === index}">
                             <span class="text-xs uppercase">{{ day.dayOfWeek }}</span>
@@ -89,10 +89,10 @@
                     </div>
 
                     <div class="flex items-center bg-white/60 p-3 rounded-2xl mb-4 shadow-sm backdrop-blur-sm">
-                        <i class="fas fa-cloud-sun text-yuzen-yellow text-2xl mr-3"></i>
+                        <i :class="currentWeather.icon" class="text-3xl mr-3" :style="`color: ${currentWeather.iconColor}`"></i>
                         <div>
-                            <p class="text-sm font-bold text-gray-700">金澤市/高山市預測</p>
-                            <p class="text-xs text-gray-500">氣溫 22°C | 體感 24°C</p>
+                            <p class="text-sm font-bold text-gray-700">{{ currentWeather.city }} 即時天氣預報</p>
+                            <p class="text-xs text-gray-500">氣溫 {{ currentWeather.temp }}°C | 體感 {{ currentWeather.apparent }}°C ({{ currentWeather.desc }})</p>
                         </div>
                     </div>
 
@@ -127,23 +127,30 @@
                                 </div>
                             </div>
                             
-                            <div v-else class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative group cursor-pointer" @click="openGuide(item)">
-                                <div class="flex justify-between items-center mb-2">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="px-2 py-1 rounded text-[10px] font-bold text-white flex items-center" :class="getCategoryColor(item.category)">
-                                            <i :class="getCategoryIcon(item.category)" class="mr-1"></i> {{ item.category }}
-                                        </span>
-                                        <span class="font-bold text-gray-700 text-sm">{{ item.time }}</span>
-                                    </div>
-                                    <div class="flex space-x-2">
-                                        <button @click.stop="editItem(item)" class="text-gray-400 hover:text-yuzen-purple"><i class="fas fa-edit"></i></button>
-                                        <a href="#" @click.stop="alert('模擬開啟 Google Maps 導航')" class="text-gray-400 hover:text-blue-500"><i class="fas fa-location-arrow"></i></a>
-                                    </div>
+                            <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 flex overflow-hidden group cursor-pointer hover:shadow-md transition" @click="openGuide(item)">
+                                
+                                <div class="drag-handle bg-gray-50 w-8 flex items-center justify-center cursor-grab hover:bg-gray-200 transition text-gray-400">
+                                    <i class="fas fa-grip-vertical"></i>
                                 </div>
-                                <h3 class="font-bold text-lg mb-1">{{ item.title }}</h3>
-                                <p v-if="item.hours" class="text-xs text-gray-500 mb-1"><i class="far fa-clock mr-1"></i>營業時間: {{ item.hours }}</p>
-                                <p v-if="item.ticket" class="text-xs text-gray-500 mb-2"><i class="fas fa-ticket-alt mr-1"></i>門票: {{ item.ticket }}</p>
-                                <p v-if="item.notes" class="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-2">{{ item.notes }}</p>
+
+                                <div class="p-4 flex-1">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="px-2 py-1 rounded text-[10px] font-bold text-white flex items-center" :class="getCategoryColor(item.category)">
+                                                <i :class="getCategoryIcon(item.category)" class="mr-1"></i> {{ item.category }}
+                                            </span>
+                                            <span class="font-bold text-gray-700 text-sm">{{ item.time }}</span>
+                                        </div>
+                                        <div class="flex space-x-3 text-lg">
+                                            <button @click.stop="editItem(item)" class="text-gray-300 hover:text-yuzen-purple transition"><i class="fas fa-edit"></i></button>
+                                            <button @click.stop="openGoogleMap(item)" class="text-gray-300 hover:text-blue-500 transition"><i class="fas fa-map-marker-alt"></i></button>
+                                        </div>
+                                    </div>
+                                    <h3 class="font-bold text-lg mb-1">{{ item.title }}</h3>
+                                    <p v-if="item.hours" class="text-xs text-gray-500 mb-1"><i class="far fa-clock mr-1"></i>營業時間: {{ item.hours }}</p>
+                                    <p v-if="item.ticket" class="text-xs text-gray-500 mb-2"><i class="fas fa-ticket-alt mr-1"></i>門票: {{ item.ticket }}</p>
+                                    <p v-if="item.notes" class="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-2">{{ item.notes }}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -237,11 +244,11 @@
             <div v-if="guideModal" class="fixed inset-0 z-50 flex items-end justify-center bg-black/50" @click.self="guideModal = false">
                 <div class="bg-white w-full max-w-md rounded-t-3xl p-6 h-[70vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-yuzen-indigo"><i class="fas fa-robot text-blue-500 mr-2"></i>AI 導遊分析</h2>
+                        <h2 class="text-xl font-bold text-yuzen-indigo"><i class="fas fa-robot text-blue-500 mr-2"></i>AI 專屬導遊</h2>
                         <button @click="guideModal = false" class="text-gray-400 text-xl"><i class="fas fa-times"></i></button>
                     </div>
-                    <h3 class="font-bold text-lg mb-2">{{ selectedItem?.title }}</h3>
-                    <div class="prose prose-sm text-gray-600" v-html="generateGuideText(selectedItem)"></div>
+                    <h3 class="font-bold text-lg mb-4 pb-2 border-b">{{ selectedItem?.title }}</h3>
+                    <div class="prose prose-sm text-gray-700 leading-relaxed" v-html="generateGuideText(selectedItem)"></div>
                 </div>
             </div>
         </transition>
@@ -320,14 +327,18 @@
                 const expenses = ref([]);
                 const sortableList = ref(null);
 
-                // 飯店與航班資料提取自 PDF
+                // 天氣資訊 State
+                const currentWeather = ref({
+                    city: '載入中', temp: '--', apparent: '--', desc: '...', icon: 'fas fa-spinner fa-spin', iconColor: '#ccc'
+                });
+
                 const hotels = ref([
                     { name: 'Hotel and Spa Gift Takayama', dates: '6/22 - 6/24', address: '6 Chome-22 Tenmanmachi, Takayama', tel: '+81-577-32-6210' },
                     { name: 'ゆのくに天祥 (Yunokuni Tensyo)', dates: '6/24 - 6/25', address: 'Yamashiroonsen, Kaga', tel: '+81-761-77-1234' },
                     { name: 'HOTEL TORIFITO KANAZAWA', dates: '6/25 - 6/28', address: '2 Chome-12-1 Honmachi, Kanazawa', tel: '請查詢官網' }
                 ]);
 
-                // 每日資料與背景色映射
+                // 修正了 0624.jpeg 的副檔名
                 const itinerary = ref([
                     { date: '22', dayOfWeek: 'Mon', img: '0622.jpg', bgColor: '#f0f4f8', items: [
                         { id: 1, time: '07:30', title: '航班 CI1154 TPE->NGO', category: '航班', transitType: 'none', transitTime: 0 },
@@ -343,7 +354,7 @@
                         { id: 9, time: '13:00', title: '明神池', category: '景點', transitType: 'walk', transitTime: 60, ticket: '500日圓(神社參拜)' },
                         { id: 10, time: '19:00', title: '高山老街 (京や、寿々や)', category: '美食', transitType: 'train', transitTime: 120 }
                     ]},
-                    { date: '24', dayOfWeek: 'Wed', img: '0624.jpg', bgColor: '#f5ebeb', items: [
+                    { date: '24', dayOfWeek: 'Wed', img: '0624.jpeg', bgColor: '#f5ebeb', items: [
                         { id: 11, time: '07:00', title: '宮川朝市 / 高山老街', category: '景點', transitType: 'walk', transitTime: 15 },
                         { id: 12, time: '12:50', title: '濃飛巴士往金澤', category: '交通', transitType: 'walk', transitTime: 10 },
                         { id: 13, time: '15:19', title: '金澤轉車往加賀溫泉', category: '交通', transitType: 'train', transitTime: 130 },
@@ -382,8 +393,52 @@
                 const currentItineraryItems = computed(() => itinerary.value[activeDayIndex.value].items);
                 const totalExpenses = computed(() => expenses.value.reduce((sum, e) => sum + e.amount, 0));
 
+                // Open-Meteo 天氣 API 實作
+                const fetchWeatherData = async () => {
+                    // 根據日期選擇地點 (前2天高山，後幾天金澤周邊)
+                    const isTakayama = activeDayIndex.value < 2;
+                    const lat = isTakayama ? 36.1408 : 36.5613;
+                    const lon = isTakayama ? 137.2513 : 136.6562;
+                    const city = isTakayama ? '岐阜縣 高山市' : '石川縣 金澤市';
+                    
+                    try {
+                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia%2FTokyo`);
+                        const data = await res.json();
+                        const code = data.current.weather_code;
+                        
+                        // 解析 WMO 天氣代碼 (對應 FontAwesome 圖示)
+                        let desc = '晴天';
+                        let icon = 'fas fa-sun';
+                        let iconColor = '#e8c918'; // 預設黃色太陽
+                        
+                        if (code >= 1 && code <= 3) { desc = '多雲'; icon = 'fas fa-cloud-sun'; iconColor = '#a0aec0'; }
+                        else if (code >= 45 && code <= 48) { desc = '起霧'; icon = 'fas fa-smog'; iconColor = '#718096'; }
+                        else if (code >= 51 && code <= 67) { desc = '下雨'; icon = 'fas fa-cloud-showers-heavy'; iconColor = '#4299e1'; }
+                        else if (code >= 71 && code <= 77) { desc = '下雪'; icon = 'fas fa-snowflake'; iconColor = '#90cdf4'; }
+                        else if (code >= 95) { desc = '雷雨'; icon = 'fas fa-bolt'; iconColor = '#ecc94b'; }
+
+                        currentWeather.value = {
+                            city: city,
+                            temp: data.current.temperature_2m,
+                            apparent: data.current.apparent_temperature,
+                            desc: desc,
+                            icon: icon,
+                            iconColor: iconColor
+                        };
+                    } catch (error) {
+                        currentWeather.value.desc = "無法取得天氣";
+                        console.error("天氣 API 錯誤", error);
+                    }
+                };
+
+                // 監聽日期切換，重新抓取天氣並重新綁定拖曳功能
+                watch(activeDayIndex, () => {
+                    fetchWeatherData();
+                });
+
                 // 模擬讀取進度
                 onMounted(() => {
+                    fetchWeatherData(); // 初始化抓取天氣
                     let interval = setInterval(() => {
                         loadingProgress.value += Math.floor(Math.random() * 15) + 5;
                         if(loadingProgress.value >= 100) {
@@ -394,11 +449,12 @@
                     }, 200);
                 });
 
-                // 初始化拖曳 (切換 Tab 或日期時需重新綁定)
+                // 修正拖曳邏輯：指定 handle，防止點擊卡片誤觸
                 const initSortable = () => {
                     nextTick(() => {
                         if (sortableList.value) {
                             Sortable.create(sortableList.value, {
+                                handle: '.drag-handle', // <--- 加入拖曳把手
                                 animation: 150,
                                 ghostClass: 'bg-gray-100',
                                 onEnd: (evt) => {
@@ -409,7 +465,7 @@
                         }
                     });
                 };
-                watch([currentTab, activeDayIndex], () => { if(currentTab.value === 'itinerary') initSortable(); });
+                watch(currentTab, () => { if(currentTab.value === 'itinerary') initSortable(); });
 
                 // UI 輔助方法
                 const getCategoryColor = (cat) => {
@@ -429,16 +485,34 @@
                     return map[cat] || 'bg-gray-100';
                 }
 
-                // AI 導遊生成 (模擬)
+                const openGoogleMap = (item) => {
+                    // 在此可將關鍵字帶入實際的 Google Map URL 進行跳轉
+                    alert(`正在導航至：${item.title}`);
+                };
+
+                // AI 導遊豐富解析：動態產生亮點色彩標籤
                 const openGuide = (item) => {
                     selectedItem.value = item;
                     guideModal.value = true;
                 };
                 const generateGuideText = (item) => {
-                    if(item.category === '美食') return `推薦必點：<br><span class="text-yuzen-red font-bold px-1 bg-red-50">#飛驒牛燒肉</span>、<span class="text-yuzen-red font-bold px-1 bg-red-50">#高山拉麵</span>。<br><br>💡 導遊小提醒：高山老街的餐廳多半提早打烊，建議提早前往排隊。`;
-                    if(item.title.includes('東茶屋街') || item.title.includes('老街')) return `探索指南：這裡是日本重要的傳統建築群。<br><br>必買伴手禮：<br><span class="text-yellow-600 font-bold px-1 bg-yellow-50">#金箔冰淇淋</span>、<span class="text-yellow-600 font-bold px-1 bg-yellow-50">#地酒</span>。<br><br>💡 導遊小提醒：請注意部分店家內部禁止拍照。`;
-                    if(item.title.includes('市場')) return `探索指南：被稱為「金澤的廚房」。<br><br>必吃美食：<br><span class="text-blue-600 font-bold px-1 bg-blue-50">#海鮮丼</span>、<span class="text-blue-600 font-bold px-1 bg-blue-50">#生蠔</span>。<br><br>💡 導遊小提醒：中午時段人潮眾多，推薦早上去吃最新鮮！`;
-                    return `💡 導遊小提醒：請放鬆心情享受這個行程！享受日本北陸的美好風光。`;
+                    let content = '';
+                    if(item.title.includes('味藏天國')) {
+                        content = `🥩 【味藏天國】是高山市內極具人氣的燒肉名店，鄰近高山車站。這裡提供最高等級的飛驒牛，油花分布均勻，入口即化。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：絕品黑毛和牛。<br><span class="text-orange-500 font-bold">必點菜單</span>：<span class="font-bold">#飛驒牛拼盤</span>、<span class="font-bold">#特上牛舌</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：櫃檯販售的<span class="font-bold">#特製燒肉醬</span>，帶回家拌飯一絕！`;
+                    } else if(item.title.includes('上高地') || item.title.includes('大正池') || item.title.includes('河童橋')) {
+                        content = `⛰️ 【上高地】被譽為「神的故鄉」，保留了最原始的自然風貌。從大正池慢步走到河童橋是極度療癒的經典路線。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：<span class="font-bold">#信州蘋果霜淇淋</span>、河童橋旁的<span class="font-bold">#河童可樂餅</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：以自然生態為主題的<span class="font-bold">#白樺木手工藝品</span>。`;
+                    } else if (item.title.includes('朝市') || item.title.includes('老街')) {
+                         content = `🏮 【高山老街與朝市】充滿濃郁的江戶時代風情。宮川朝市有許多當地農婦販售的新鮮蔬果與手作好物。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：<span class="font-bold">#飛驒牛握壽司</span>、百年醬油烤出來的<span class="font-bold">#醬油烤麻糬</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：祈求平安的紅色玩偶<span class="font-bold">#猿寶寶(さるぼぼ)</span>、<span class="font-bold">#高山拉麵包</span>。`;
+                    } else if (item.title.includes('兼六園') || item.title.includes('金澤城')) {
+                         content = `🌸 【兼六園】日本三大名園之一，完美展現了宏大、幽邃、人力、蒼古、水泉、眺望等六種絕美意境。<br><br><span class="text-orange-500 font-bold">必點菜單</span>：園內茶屋的<span class="font-bold">#金箔抹茶</span>搭配時令<span class="font-bold">#和菓子</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：閃亮奢華的<span class="font-bold">#金澤金箔工藝品</span>或金箔化妝水。`;
+                    } else if (item.title.includes('近江町市場')) {
+                         content = `🦀 【近江町市場】有著「金澤市民的廚房」美譽，超過上百家店鋪提供當季最新鮮的海產！<br><br><span class="text-blue-600 font-bold">必吃美食</span>：鋪滿海膽與鮭魚卵的<span class="font-bold">#豪華海鮮丼</span>、現剖<span class="font-bold">#生蠔</span>。<br><span class="text-orange-500 font-bold">必點菜單</span>：<span class="font-bold">#金澤關東煮</span> (當地特色車麩)。`;
+                    } else if (item.title.includes('茶屋街')) {
+                         content = `🍵 【茶屋街】金澤保留最完整的傳統茶屋建築群，走進小巷彷彿穿越時空，非常適合穿著和服拍照。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：超浮誇的<span class="font-bold">#金箔冰淇淋</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：<span class="font-bold">#加賀梅酒</span>與各式精緻<span class="font-bold">#九谷燒</span>瓷器。`;
+                    } else {
+                         content = `✨ 專屬導遊分析：這是一個非常值得探索的行程！請盡情享受日本北陸的歷史與文化氛圍。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：探索周邊的<span class="font-bold">#在地特色小吃</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：當地超市或名產店的<span class="font-bold">#地酒與傳統點心</span>。`;
+                    }
+                    return content;
                 };
 
                 // CRUD 操作
@@ -460,7 +534,6 @@
                     } else {
                         editingItem.value.id = Date.now();
                         currentItineraryItems.value.push({ ...editingItem.value });
-                        // 依照時間排序
                         currentItineraryItems.value.sort((a,b) => a.time.localeCompare(b.time));
                     }
                     editModal.value = false;
@@ -489,6 +562,7 @@
                     appReady, loadingProgress, currentTab, activeDayIndex, calcJpy,
                     guideModal, selectedItem, editModal, expenseModal, editingItem, newExpense,
                     hotels, itinerary, currentDateInfo, currentItineraryItems, expenses, totalExpenses, sortableList,
+                    currentWeather, openGoogleMap,
                     getCategoryColor, getCategoryIcon, getExpenseIcon, getExpenseIconColor, generateGuideText,
                     editItem, openEditModal, saveItem, confirmDelete, saveExpense
                 }
