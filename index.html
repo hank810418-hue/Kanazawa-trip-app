@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>山海之間 - 百萬石之城</title>
+    <title>北陸之旅 - 金澤、高山、加賀</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -88,11 +88,17 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center bg-white/60 p-3 rounded-2xl mb-4 shadow-sm backdrop-blur-sm">
-                        <i :class="currentWeather.icon" class="text-3xl mr-3" :style="`color: ${currentWeather.iconColor}`"></i>
-                        <div>
-                            <p class="text-sm font-bold text-gray-700">{{ currentWeather.city }} 即時天氣預報</p>
-                            <p class="text-xs text-gray-500">氣溫 {{ currentWeather.temp }}°C | 體感 {{ currentWeather.apparent }}°C ({{ currentWeather.desc }})</p>
+                    <div class="bg-white/70 rounded-2xl mb-4 p-3 shadow-sm backdrop-blur-sm">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="text-sm font-bold text-gray-700"><i class="fas fa-location-dot mr-1 text-yuzen-red"></i> {{ weatherCityName }}</span>
+                            <span class="text-xs text-gray-500">24H 預報</span>
+                        </div>
+                        <div class="flex overflow-x-auto hide-scrollbar gap-3 pb-2">
+                            <div v-for="(hour, idx) in hourlyForecast" :key="idx" class="flex flex-col items-center min-w-[45px] bg-white/50 rounded-lg py-2 shadow-sm border border-gray-100">
+                                <span class="text-[10px] text-gray-500 mb-1">{{ hour.time }}</span>
+                                <i :class="hour.icon" class="text-lg mb-1" :style="`color: ${hour.iconColor}`"></i>
+                                <span class="text-sm font-bold text-gray-700">{{ hour.temp }}°</span>
+                            </div>
                         </div>
                     </div>
 
@@ -105,7 +111,7 @@
                                 約 {{ item.transitTime }} 分鐘
                             </div>
 
-                            <div v-if="activeDayIndex === 0 && itemIdx === 0 && item.category === 'flight'" class="bg-yuzen-indigo text-white p-4 rounded-2xl shadow-md relative">
+                            <div v-if="activeDayIndex === 0 && itemIdx === 0 && item.category === '航班'" class="bg-yuzen-indigo text-white p-4 rounded-2xl shadow-md relative">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="bg-yuzen-red px-2 py-1 rounded text-xs font-bold">{{ item.time }}</span>
                                     <span class="text-xs">{{ item.title }}</span>
@@ -127,7 +133,9 @@
                                 </div>
                             </div>
                             
-                            <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 flex overflow-hidden group cursor-pointer hover:shadow-md transition" @click="openGuide(item)">
+                            <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 flex overflow-hidden group transition" 
+                                 :class="['景點', '美食'].includes(item.category) ? 'cursor-pointer hover:shadow-md' : 'cursor-default'"
+                                 @click="['景點', '美食'].includes(item.category) && openGuide(item)">
                                 
                                 <div class="drag-handle bg-gray-50 w-8 flex items-center justify-center cursor-grab hover:bg-gray-200 transition text-gray-400">
                                     <i class="fas fa-grip-vertical"></i>
@@ -146,7 +154,10 @@
                                             <button v-if="['景點', '美食'].includes(item.category)" @click.stop="openGoogleMap(item)" class="text-gray-300 hover:text-blue-500 transition"><i class="fas fa-map-marker-alt"></i></button>
                                         </div>
                                     </div>
-                                    <h3 class="font-bold text-lg mb-1">{{ item.title }}</h3>
+                                    <h3 class="font-bold text-lg mb-1 flex items-center">
+                                        {{ item.title }}
+                                        <i v-if="['景點', '美食'].includes(item.category)" class="fas fa-sparkles text-yuzen-yellow text-sm ml-2 animate-pulse"></i>
+                                    </h3>
                                     <p v-if="item.hours" class="text-xs text-gray-500 mb-1"><i class="far fa-clock mr-1"></i>營業時間: {{ item.hours }}</p>
                                     <p v-if="item.ticket" class="text-xs text-gray-500 mb-2"><i class="fas fa-ticket-alt mr-1"></i>門票: {{ item.ticket }}</p>
                                     <p v-if="item.notes" class="text-sm text-gray-600 bg-gray-50 p-2 rounded mt-2">{{ item.notes }}</p>
@@ -242,13 +253,25 @@
 
         <transition name="fade">
             <div v-if="guideModal" class="fixed inset-0 z-50 flex items-end justify-center bg-black/50" @click.self="guideModal = false">
-                <div class="bg-white w-full max-w-md rounded-t-3xl p-6 h-[70vh] overflow-y-auto">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-bold text-yuzen-indigo"><i class="fas fa-robot text-blue-500 mr-2"></i>AI 專屬導遊</h2>
-                        <button @click="guideModal = false" class="text-gray-400 text-xl"><i class="fas fa-times"></i></button>
+                <div class="bg-white w-full max-w-md rounded-t-3xl p-6 h-[75vh] overflow-y-auto relative">
+                    <button @click="guideModal = false" class="absolute top-4 right-4 text-gray-400 text-2xl bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-times"></i></button>
+                    
+                    <div class="flex items-center mb-6 mt-2">
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas fa-robot text-blue-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold text-gray-500">AI 專屬導覽員</h2>
+                            <h3 class="text-xl font-bold text-gray-800">{{ selectedItem?.title }}</h3>
+                        </div>
                     </div>
-                    <h3 class="font-bold text-lg mb-4 pb-2 border-b">{{ selectedItem?.title }}</h3>
-                    <div class="prose prose-sm text-gray-700 leading-relaxed" v-html="generateGuideText(selectedItem)"></div>
+
+                    <div v-if="isGuideLoading" class="flex flex-col items-center justify-center py-10 space-y-4">
+                        <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500"></i>
+                        <p class="text-gray-500 text-sm font-bold animate-pulse">正在搜尋在地故事與攻略...</p>
+                    </div>
+
+                    <div v-else class="text-gray-700 leading-relaxed" v-html="aiGuideContent"></div>
                 </div>
             </div>
         </transition>
@@ -316,9 +339,11 @@
                 const activeDayIndex = ref(0);
                 const calcJpy = ref('');
                 
-                // 彈窗狀態
+                // 彈窗與 AI 狀態
                 const guideModal = ref(false);
                 const selectedItem = ref(null);
+                const isGuideLoading = ref(false);
+                const aiGuideContent = ref('');
                 const editModal = ref(false);
                 const expenseModal = ref(false);
                 
@@ -327,10 +352,9 @@
                 const expenses = ref([]);
                 const sortableList = ref(null);
 
-                // 天氣資訊 State
-                const currentWeather = ref({
-                    city: '載入中', temp: '--', apparent: '--', desc: '...', icon: 'fas fa-spinner fa-spin', iconColor: '#ccc'
-                });
+                // 天氣資訊
+                const weatherCityName = ref('載入中');
+                const hourlyForecast = ref([]);
 
                 const hotels = ref([
                     { name: 'Hotel and Spa Gift Takayama', dates: '6/22 - 6/24', address: '6 Chome-22 Tenmanmachi, Takayama', tel: '+81-577-32-6210' },
@@ -338,53 +362,43 @@
                     { name: 'HOTEL TORIFITO KANAZAWA', dates: '6/25 - 6/28', address: '2 Chome-12-1 Honmachi, Kanazawa', tel: '請查詢官網' }
                 ]);
 
-                // 修正了 0628 的副檔名為 png
                 const itinerary = ref([
                     { date: '22', dayOfWeek: 'Mon', img: '0622.jpg', bgColor: '#f0f4f8', items: [
                         { id: 1, time: '07:30', title: '航班 CI1154 TPE->NGO', category: '航班', transitType: 'none', transitTime: 0 },
                         { id: 2, time: '13:00', title: '搭乘名鐵特急至名古屋', category: '交通', transitType: 'walk', transitTime: 10, notes: '票價 1430 日圓' },
                         { id: 3, time: '15:00', title: 'ひだ13号 (名古屋->高山)', category: '交通', transitType: 'train', transitTime: 5 },
-                        { id: 4, time: '18:00', title: '味藏天國 (晚餐)', category: '美食', transitType: 'walk', transitTime: 15, notes: '預定 18:00' },
+                        { id: 4, time: '18:00', title: '味藏天國', category: '美食', transitType: 'walk', transitTime: 15, notes: '預定 18:00 晚餐' },
                         { id: 5, time: '20:00', title: 'Hotel and Spa Gift Takayama', category: '住宿', transitType: 'walk', transitTime: 5 }
                     ]},
                     { date: '23', dayOfWeek: 'Tue', img: '0623.jpg', bgColor: '#eef2e6', items: [
                         { id: 6, time: '07:00', title: '濃飛巴士往上高地', category: '交通', transitType: 'walk', transitTime: 5 },
                         { id: 7, time: '09:00', title: '大正池 / 田代橋', category: '景點', transitType: 'train', transitTime: 90 },
-                        { id: 8, time: '11:00', title: '河童橋 (午餐)', category: '美食', transitType: 'walk', transitTime: 40 },
+                        { id: 8, time: '11:00', title: '河童橋', category: '美食', transitType: 'walk', transitTime: 40, notes: '附近午餐' },
                         { id: 9, time: '13:00', title: '明神池', category: '景點', transitType: 'walk', transitTime: 60, ticket: '500日圓(神社參拜)' },
-                        { id: 10, time: '19:00', title: '高山老街 (京や、寿々や)', category: '美食', transitType: 'train', transitTime: 120 }
+                        { id: 10, time: '19:00', title: '京や', category: '美食', transitType: 'train', transitTime: 120 }
                     ]},
                     { date: '24', dayOfWeek: 'Wed', img: '0624.jpeg', bgColor: '#f5ebeb', items: [
-                        { id: 11, time: '07:00', title: '宮川朝市 / 高山老街', category: '景點', transitType: 'walk', transitTime: 15 },
+                        { id: 11, time: '07:00', title: '宮川朝市', category: '景點', transitType: 'walk', transitTime: 15 },
                         { id: 12, time: '12:50', title: '濃飛巴士往金澤', category: '交通', transitType: 'walk', transitTime: 10 },
                         { id: 13, time: '15:19', title: '金澤轉車往加賀溫泉', category: '交通', transitType: 'train', transitTime: 130 },
-                        { id: 14, time: '16:45', title: '飯店接駁車', category: '交通', transitType: 'walk', transitTime: 5 },
-                        { id: 15, time: '17:00', title: 'ゆのくに天祥 (一泊二食)', category: '住宿', transitType: 'walk', transitTime: 15 }
+                        { id: 15, time: '17:00', title: 'ゆのくに天祥', category: '住宿', transitType: 'walk', transitTime: 15 }
                     ]},
                     { date: '25', dayOfWeek: 'Thu', img: '0625.jpg', bgColor: '#e6f2f5', items: [
                         { id: 16, time: '11:00', title: '金澤車站 -> 新高岡', category: '交通', transitType: 'train', transitTime: 45 },
                         { id: 17, time: '13:00', title: '雨晴海岸', category: '景點', transitType: 'train', transitTime: 30 },
                         { id: 18, time: '15:00', title: '冰見漁港', category: '景點', transitType: 'train', transitTime: 20 },
-                        { id: 19, time: '17:00', title: '金澤百番街', category: '購物', transitType: 'train', transitTime: 70 },
                         { id: 20, time: '19:00', title: 'HOTEL TORIFITO KANAZAWA', category: '住宿', transitType: 'walk', transitTime: 10 }
                     ]},
                     { date: '26', dayOfWeek: 'Fri', img: '0626.jpg', bgColor: '#ebf0e6', items: [
-                        { id: 21, time: '07:00', title: '新幹線往福井', category: '交通', transitType: 'walk', transitTime: 10 },
-                        { id: 22, time: '09:00', title: '福井恐龍博物館', category: '景點', transitType: 'train', transitTime: 60 },
-                        { id: 23, time: '13:00', title: '福井車站', category: '景點', transitType: 'train', transitTime: 60 }
+                        { id: 22, time: '09:00', title: '福井恐龍博物館', category: '景點', transitType: 'train', transitTime: 60 }
                     ]},
                     { date: '27', dayOfWeek: 'Sat', img: '0627.jpg', bgColor: '#f5f0e6', items: [
                         { id: 24, time: '09:00', title: '兼六園', category: '景點', transitType: 'walk', transitTime: 15 },
-                        { id: 25, time: '11:00', title: '金澤城公園', category: '景點', transitType: 'walk', transitTime: 5 },
                         { id: 26, time: '13:00', title: '東茶屋街', category: '景點', transitType: 'walk', transitTime: 20 },
-                        { id: 27, time: '15:00', title: '主計町茶屋街', category: '景點', transitType: 'walk', transitTime: 10 },
-                        { id: 28, time: '19:00', title: '金澤じもの (晚餐)', category: '美食', transitType: 'walk', transitTime: 15 }
+                        { id: 28, time: '19:00', title: '金澤じもの', category: '美食', transitType: 'walk', transitTime: 15 }
                     ]},
                     { date: '28', dayOfWeek: 'Sun', img: '0628.png', bgColor: '#eef0f2', items: [
                         { id: 29, time: '07:00', title: '近江町市場', category: '美食', transitType: 'walk', transitTime: 15 },
-                        { id: 30, time: '09:00', title: '妙立寺', category: '景點', transitType: 'walk', transitTime: 20 },
-                        { id: 31, time: '11:00', title: '西茶屋街 / 長町武家屋敷', category: '景點', transitType: 'walk', transitTime: 10 },
-                        { id: 32, time: '14:20', title: '接駁巴士往小松機場', category: '交通', transitType: 'walk', transitTime: 15 },
                         { id: 33, time: '16:55', title: '臺灣虎航 IT253 KMQ->TPE', category: '航班', transitType: 'train', transitTime: 40 }
                     ]}
                 ]);
@@ -393,57 +407,53 @@
                 const currentItineraryItems = computed(() => itinerary.value[activeDayIndex.value].items);
                 const totalExpenses = computed(() => expenses.value.reduce((sum, e) => sum + e.amount, 0));
 
-                // 指定各地點經緯度
                 const weatherLocations = [
-                    { city: '愛知縣 名古屋市', lat: 35.1815, lon: 136.9066 }, // 6/22
-                    { city: '長野縣 上高地', lat: 36.2461, lon: 137.6381 },   // 6/23
-                    { city: '岐阜縣 高山市', lat: 36.1408, lon: 137.2513 },   // 6/24
-                    { city: '富山縣 雨晴', lat: 36.8143, lon: 137.0435 },     // 6/25
-                    { city: '福井縣 福井市', lat: 36.0641, lon: 136.2219 },   // 6/26
-                    { city: '石川縣 金澤市', lat: 36.5613, lon: 136.6562 },   // 6/27
-                    { city: '石川縣 金澤市', lat: 36.5613, lon: 136.6562 }    // 6/28
+                    { city: '愛知縣 名古屋市', lat: 35.1815, lon: 136.9066 }, 
+                    { city: '長野縣 上高地', lat: 36.2461, lon: 137.6381 },   
+                    { city: '岐阜縣 高山市', lat: 36.1408, lon: 137.2513 },   
+                    { city: '富山縣 雨晴', lat: 36.8143, lon: 137.0435 },     
+                    { city: '福井縣 福井市', lat: 36.0641, lon: 136.2219 },   
+                    { city: '石川縣 金澤市', lat: 36.5613, lon: 136.6562 },   
+                    { city: '石川縣 金澤市', lat: 36.5613, lon: 136.6562 }    
                 ];
 
-                // Open-Meteo 天氣 API 實作
                 const fetchWeatherData = async () => {
                     const loc = weatherLocations[activeDayIndex.value];
+                    weatherCityName.value = loc.city;
                     
                     try {
-                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia%2FTokyo`);
+                        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`);
                         const data = await res.json();
-                        const code = data.current.weather_code;
                         
-                        // 解析 WMO 天氣代碼 (對應 FontAwesome 圖示)
-                        let desc = '晴天';
-                        let icon = 'fas fa-sun';
-                        let iconColor = '#e8c918';
-                        
-                        if (code >= 1 && code <= 3) { desc = '多雲'; icon = 'fas fa-cloud-sun'; iconColor = '#a0aec0'; }
-                        else if (code >= 45 && code <= 48) { desc = '起霧'; icon = 'fas fa-smog'; iconColor = '#718096'; }
-                        else if (code >= 51 && code <= 67) { desc = '下雨'; icon = 'fas fa-cloud-showers-heavy'; iconColor = '#4299e1'; }
-                        else if (code >= 71 && code <= 77) { desc = '下雪'; icon = 'fas fa-snowflake'; iconColor = '#90cdf4'; }
-                        else if (code >= 95) { desc = '雷雨'; icon = 'fas fa-bolt'; iconColor = '#ecc94b'; }
+                        // 取目前時間往後的 24 小時資料
+                        const now = new Date();
+                        const currentHourStr = now.toISOString().slice(0, 14) + "00";
+                        let startIndex = data.hourly.time.findIndex(t => t >= currentHourStr);
+                        if (startIndex === -1) startIndex = 0;
 
-                        currentWeather.value = {
-                            city: loc.city,
-                            temp: data.current.temperature_2m,
-                            apparent: data.current.apparent_temperature,
-                            desc: desc,
-                            icon: icon,
-                            iconColor: iconColor
-                        };
+                        hourlyForecast.value = data.hourly.time.slice(startIndex, startIndex + 24).map((timeStr, idx) => {
+                            const code = data.hourly.weather_code[startIndex + idx];
+                            let icon = 'fas fa-sun'; let iconColor = '#e8c918';
+                            if (code >= 1 && code <= 3) { icon = 'fas fa-cloud-sun'; iconColor = '#a0aec0'; }
+                            else if (code >= 45 && code <= 48) { icon = 'fas fa-smog'; iconColor = '#718096'; }
+                            else if (code >= 51 && code <= 67) { icon = 'fas fa-cloud-showers-heavy'; iconColor = '#4299e1'; }
+                            else if (code >= 71 && code <= 77) { icon = 'fas fa-snowflake'; iconColor = '#90cdf4'; }
+                            else if (code >= 95) { icon = 'fas fa-bolt'; iconColor = '#ecc94b'; }
+
+                            const hourObj = new Date(timeStr);
+                            return {
+                                time: `${hourObj.getHours().toString().padStart(2, '0')}:00`,
+                                temp: Math.round(data.hourly.temperature_2m[startIndex + idx]),
+                                icon, iconColor
+                            };
+                        });
                     } catch (error) {
-                        currentWeather.value.desc = "無法取得天氣";
                         console.error("天氣 API 錯誤", error);
                     }
                 };
 
-                // 監聽日期切換，重新抓取天氣
-                watch(activeDayIndex, () => {
-                    fetchWeatherData();
-                });
+                watch(activeDayIndex, fetchWeatherData);
 
-                // 模擬讀取進度
                 onMounted(() => {
                     fetchWeatherData();
                     let interval = setInterval(() => {
@@ -456,14 +466,11 @@
                     }, 200);
                 });
 
-                // 拖曳邏輯：指定 handle
                 const initSortable = () => {
                     nextTick(() => {
                         if (sortableList.value) {
                             Sortable.create(sortableList.value, {
-                                handle: '.drag-handle', 
-                                animation: 150,
-                                ghostClass: 'bg-gray-100',
+                                handle: '.drag-handle', animation: 150, ghostClass: 'bg-gray-100',
                                 onEnd: (evt) => {
                                     const item = currentItineraryItems.value.splice(evt.oldIndex, 1)[0];
                                     currentItineraryItems.value.splice(evt.newIndex, 0, item);
@@ -474,69 +481,112 @@
                 };
                 watch(currentTab, () => { if(currentTab.value === 'itinerary') initSortable(); });
 
-                // UI 輔助方法
-                const getCategoryColor = (cat) => {
-                    const map = { '景點': 'bg-blue-500', '美食': 'bg-orange-500', '住宿': 'bg-yuzen-purple', '購物': 'bg-pink-500', '交通': 'bg-gray-500', '航班': 'bg-yuzen-indigo' };
-                    return map[cat] || 'bg-gray-400';
-                };
-                const getCategoryIcon = (cat) => {
-                    const map = { '景點': 'fas fa-camera', '美食': 'fas fa-utensils', '住宿': 'fas fa-bed', '購物': 'fas fa-shopping-bag', '交通': 'fas fa-bus', '航班': 'fas fa-plane' };
-                    return map[cat] || 'fas fa-map-pin';
-                };
-                const getExpenseIcon = (cat) => {
-                    const map = { '飲食': 'fas fa-hamburger text-orange-500', '交通': 'fas fa-train text-gray-600', '購物': 'fas fa-gift text-pink-500', '門票': 'fas fa-ticket-alt text-blue-500', '其他': 'fas fa-ellipsis-h text-gray-400' };
-                    return map[cat] || 'fas fa-yen-sign';
-                };
-                const getExpenseIconColor = (cat) => {
-                    const map = { '飲食': 'bg-orange-100', '交通': 'bg-gray-200', '購物': 'bg-pink-100', '門票': 'bg-blue-100' };
-                    return map[cat] || 'bg-gray-100';
-                }
+                // UI Utils
+                const getCategoryColor = (cat) => ({ '景點': 'bg-blue-500', '美食': 'bg-orange-500', '住宿': 'bg-yuzen-purple', '交通': 'bg-gray-500', '航班': 'bg-yuzen-indigo' }[cat] || 'bg-gray-400');
+                const getCategoryIcon = (cat) => ({ '景點': 'fas fa-camera', '美食': 'fas fa-utensils', '住宿': 'fas fa-bed', '交通': 'fas fa-bus', '航班': 'fas fa-plane' }[cat] || 'fas fa-map-pin');
+                const getExpenseIcon = (cat) => ({ '飲食': 'fas fa-hamburger text-orange-500', '交通': 'fas fa-train text-gray-600', '門票': 'fas fa-ticket-alt text-blue-500' }[cat] || 'fas fa-yen-sign');
+                const getExpenseIconColor = (cat) => ({ '飲食': 'bg-orange-100', '交通': 'bg-gray-200', '門票': 'bg-blue-100' }[cat] || 'bg-gray-100');
 
-                // 真實的 Google Maps 跳轉
-                const openGoogleMap = (item) => {
-                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title)}`;
-                    window.open(mapUrl, '_blank');
-                };
+                const openGoogleMap = (item) => window.open(`https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(item.title)}`, '_blank');
 
-                // AI 導遊豐富解析
-                const openGuide = (item) => {
+                /* === RAG / LLM 生成架構實作 === */
+                // API 申請免費請至: Google AI Studio (https://aistudio.google.com/)
+                const GEMINI_API_KEY = "AQ.Ab8RN6KLX53h47evzsek0qK7VmB6Ko3YgKnG6LxZXWTHthoZlg"; // <--- 如果你有申請，貼在這裡
+                
+                const openGuide = async (item) => {
                     selectedItem.value = item;
                     guideModal.value = true;
-                };
-                
-                const generateGuideText = (item) => {
-                    let content = '';
-                    if(item.title.includes('味藏天國')) {
-                        content = `🥩 【味藏天國】是高山市內極具人氣的燒肉名店，鄰近高山車站。這裡提供最高等級的飛驒牛，油花分布均勻，入口即化。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：絕品黑毛和牛。<br><span class="text-orange-500 font-bold">必點菜單</span>：<span class="font-bold">#飛驒牛拼盤</span>、<span class="font-bold">#特上牛舌</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：櫃檯販售的<span class="font-bold">#特製燒肉醬</span>，帶回家拌飯一絕！`;
-                    } else if(item.title.includes('上高地') || item.title.includes('大正池') || item.title.includes('河童橋')) {
-                        content = `⛰️ 【上高地】被譽為「神的故鄉」，保留了最原始的自然風貌。從大正池慢步走到河童橋是極度療癒的經典路線。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：<span class="font-bold">#信州蘋果霜淇淋</span>、河童橋旁的<span class="font-bold">#河童可樂餅</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：以自然生態為主題的<span class="font-bold">#白樺木手工藝品</span>。`;
-                    } else if (item.title.includes('朝市') || item.title.includes('老街')) {
-                         content = `🏮 【高山老街與朝市】充滿濃郁的江戶時代風情。宮川朝市有許多當地農婦販售的新鮮蔬果與手作好物。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：<span class="font-bold">#飛驒牛握壽司</span>、百年醬油烤出來的<span class="font-bold">#醬油烤麻糬</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：祈求平安的紅色玩偶<span class="font-bold">#猿寶寶(さるぼぼ)</span>、<span class="font-bold">#高山拉麵包</span>。`;
-                    } else if (item.title.includes('兼六園') || item.title.includes('金澤城')) {
-                         content = `🌸 【兼六園】日本三大名園之一，完美展現了宏大、幽邃、人力、蒼古、水泉、眺望等六種絕美意境。<br><br><span class="text-orange-500 font-bold">必點菜單</span>：園內茶屋的<span class="font-bold">#金箔抹茶</span>搭配時令<span class="font-bold">#和菓子</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：閃亮奢華的<span class="font-bold">#金澤金箔工藝品</span>或金箔化妝水。`;
-                    } else if (item.title.includes('近江町市場')) {
-                         content = `🦀 【近江町市場】有著「金澤市民的廚房」美譽，超過上百家店鋪提供當季最新鮮的海產！<br><br><span class="text-blue-600 font-bold">必吃美食</span>：鋪滿海膽與鮭魚卵的<span class="font-bold">#豪華海鮮丼</span>、現剖<span class="font-bold">#生蠔</span>。<br><span class="text-orange-500 font-bold">必點菜單</span>：<span class="font-bold">#金澤關東煮</span> (當地特色車麩)。`;
-                    } else if (item.title.includes('茶屋街')) {
-                         content = `🍵 【茶屋街】金澤保留最完整的傳統茶屋建築群，走進小巷彷彿穿越時空，非常適合穿著和服拍照。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：超浮誇的<span class="font-bold">#金箔冰淇淋</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：<span class="font-bold">#加賀梅酒</span>與各式精緻<span class="font-bold">#九谷燒</span>瓷器。`;
-                    } else {
-                         content = `✨ 專屬導遊分析：這是一個非常值得探索的行程！請盡情享受日本北陸的歷史與文化氛圍。<br><br><span class="text-blue-600 font-bold">必吃美食</span>：探索周邊的<span class="font-bold">#在地特色小吃</span>。<br><span class="text-pink-500 font-bold">必買伴手禮</span>：當地超市或名產店的<span class="font-bold">#地酒與傳統點心</span>。`;
+                    isGuideLoading.value = true;
+                    aiGuideContent.value = '';
+
+                    try {
+                        if (GEMINI_API_KEY) {
+                            // 真實 LLM 呼叫 (模擬 RAG 流程: 傳入地名要求生成深度知識與推薦)
+                            const prompt = item.category === '景點' 
+                                ? `你是一個日本專業導遊。請根據景點「${item.title}」，產出以下三段 HTML 格式的解說：
+                                   1. <div class="bg-gray-50 p-4 rounded-xl mb-4"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">景點介紹</h4><p class="text-sm">...</p></div>
+                                   2. <div class="bg-blue-50 p-4 rounded-xl mb-4"><h4 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">歷史與冷知識</h4><p class="text-sm">...</p></div>
+                                   3. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">...</p></div>`
+                                : `你是一個日本美食專家。請根據餐廳/地點「${item.title}」，產出以下格式的 HTML：
+                                   1. <span class="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold mb-3 inline-block">餐廳/美食類型標籤</span>
+                                   2. <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">餐廳簡介</h4><p class="text-sm">...</p></div>
+                                   3. <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100"><h4 class="font-bold text-orange-800 mb-2"><i class="fas fa-utensils mr-1"></i>老饕推薦菜單</h4><ul class="list-disc list-inside text-sm font-bold text-gray-700"><li>推薦菜1：說明</li></ul></div>
+                                   4. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">排隊或預約建議...</p></div>`;
+
+                            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                            });
+                            const data = await response.json();
+                            aiGuideContent.value = data.candidates[0].content.parts[0].text.replace(/```html|```/g, '');
+                        } else {
+                            // 若無 API Key，使用預設精美假資料展示排版
+                            await new Promise(resolve => setTimeout(resolve, 1500)); // 模擬等待時間
+                            aiGuideContent.value = getMockGuideContent(item);
+                        }
+                    } catch (err) {
+                        aiGuideContent.value = `<div class="p-4 bg-red-50 text-red-600 rounded">AI 導遊暫時休息中，請稍後再試。</div>`;
+                    } finally {
+                        isGuideLoading.value = false;
                     }
-                    return content;
+                };
+
+                // 備用靜態資料 (符合要求的精美版型)
+                const getMockGuideContent = (item) => {
+                    if (item.category === '美食') {
+                        return `
+                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-bold mb-3 inline-block"><i class="fas fa-fire mr-1"></i> 飛驒牛燒肉名店</span>
+                            <div class="flex items-center text-sm mb-4">
+                                <span class="text-yellow-500 mr-1"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></span>
+                                <span class="text-gray-500 ml-1">4.6 (Google 評價)</span>
+                            </div>
+                            <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm">
+                                <h4 class="font-bold text-gray-800 mb-2 border-b pb-1">餐廳簡介</h4>
+                                <p class="text-sm text-gray-600">由當地的肉類批發商直營，主打A5等級的頂級飛驒牛。因為是產地直送，能以極高的 C/P 值享受到油花如大理石般美麗的黑毛和牛，是高山市極具代表性的必吃餐廳。</p>
+                            </div>
+                            <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100">
+                                <h4 class="font-bold text-orange-800 mb-2"><i class="fas fa-utensils mr-1"></i>老饕推薦菜單</h4>
+                                <ul class="space-y-2 text-sm text-gray-700">
+                                    <li class="flex justify-between border-b border-orange-200 border-dashed pb-1">
+                                        <span class="font-bold">✨ 飛驒牛拼盤 (味蔵盛り)</span><span class="text-orange-600">約 9,000円</span>
+                                    </li>
+                                    <li class="flex justify-between border-b border-orange-200 border-dashed pb-1">
+                                        <span class="font-bold">✨ 特上厚切牛舌</span><span class="text-orange-600">約 2,800円</span>
+                                    </li>
+                                    <li class="flex justify-between pb-1">
+                                        <span class="font-bold">✨ 石鍋拌飯</span><span class="text-orange-600">約 1,000円</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                                <h4 class="font-bold text-yellow-800 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4>
+                                <p class="text-sm text-gray-600">晚餐時段通常需要排隊 1-2 小時。建議在下午 5 點開門前就先去門口填寫候位表，再去附近逛逛。</p>
+                            </div>`;
+                    } else {
+                        return `
+                            <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm">
+                                <h4 class="font-bold text-gray-800 mb-2 border-b pb-1">景點介紹</h4>
+                                <p class="text-sm text-gray-600">這裡保留了最濃郁的日本傳統風情，漫步在被登錄為文化財的古老建築群中，彷彿穿越時空。四季皆有不同美景，是北陸之旅不可錯過的精華。</p>
+                            </div>
+                            <div class="bg-blue-50 p-4 rounded-xl mb-4 border border-blue-100">
+                                <h4 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1"><i class="fas fa-book-open mr-1"></i>歷史與冷知識</h4>
+                                <p class="text-sm text-gray-700">你知道嗎？這裡的建築設計為了適應北陸冬季的豪雪，屋頂結構採用了特殊的工法。另外，當地傳統吉祥物「猿寶寶 (Sarubobo)」原本是沒有五官的，為了讓收到護身符的人可以投射自己的情緒在上面。</p>
+                            </div>
+                            <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                                <h4 class="font-bold text-yellow-800 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4>
+                                <p class="text-sm text-gray-600">建議早上 9 點前抵達，避開觀光人潮，拍照光線最好！記得在入口處拿取中文導覽圖，有詳細的洗手間位置。</p>
+                            </div>`;
+                    }
                 };
 
                 // CRUD 操作
                 const openEditModal = (item) => {
-                    if (item) {
-                        editingItem.value = JSON.parse(JSON.stringify(item));
-                    } else {
-                        editingItem.value = { id: null, title: '', category: '景點', time: '10:00', transitType: 'walk', transitTime: 10 };
-                    }
+                    editingItem.value = item ? JSON.parse(JSON.stringify(item)) : { id: null, title: '', category: '景點', time: '10:00', transitType: 'walk', transitTime: 10 };
                     editModal.value = true;
                 };
                 const editItem = (item) => openEditModal(item);
-                
                 const saveItem = () => {
-                    if (!editingItem.value.title) return alert('請輸入行程名稱');
+                    if (!editingItem.value.title) return alert('請輸入名稱');
                     if (editingItem.value.id) {
                         const idx = currentItineraryItems.value.findIndex(i => i.id === editingItem.value.id);
                         if(idx > -1) currentItineraryItems.value[idx] = { ...editingItem.value };
@@ -547,33 +597,26 @@
                     }
                     editModal.value = false;
                 };
-                
                 const confirmDelete = () => {
-                    if(confirm(`確定要刪除「${editingItem.value.title}」嗎？`)) {
+                    if(confirm(`刪除「${editingItem.value.title}」？`)) {
                         const idx = currentItineraryItems.value.findIndex(i => i.id === editingItem.value.id);
                         if(idx > -1) currentItineraryItems.value.splice(idx, 1);
                         editModal.value = false;
                     }
                 };
-
                 const saveExpense = () => {
                     if(!newExpense.value.name || !newExpense.value.amount) return alert('請填寫完整資訊');
-                    expenses.value.unshift({
-                        id: Date.now(),
-                        ...newExpense.value,
-                        date: `6/${itinerary.value[activeDayIndex.value].date}`
-                    });
+                    expenses.value.unshift({ id: Date.now(), ...newExpense.value, date: `6/${itinerary.value[activeDayIndex.value].date}` });
                     newExpense.value = { category: '飲食', name: '', amount: null, payment: '現金' };
                     expenseModal.value = false;
                 };
 
-                // 將所有需要的變數與函式回傳
                 return {
                     appReady, loadingProgress, currentTab, activeDayIndex, calcJpy,
-                    guideModal, selectedItem, editModal, expenseModal, editingItem, newExpense,
+                    guideModal, selectedItem, isGuideLoading, aiGuideContent, editModal, expenseModal, editingItem, newExpense,
                     hotels, itinerary, currentDateInfo, currentItineraryItems, expenses, totalExpenses, sortableList,
-                    currentWeather, openGoogleMap, openGuide, // <--- 已補上 openGuide
-                    getCategoryColor, getCategoryIcon, getExpenseIcon, getExpenseIconColor, generateGuideText,
+                    weatherCityName, hourlyForecast, openGoogleMap, openGuide,
+                    getCategoryColor, getCategoryIcon, getExpenseIcon, getExpenseIconColor,
                     editItem, openEditModal, saveItem, confirmDelete, saveExpense
                 }
             }
