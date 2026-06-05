@@ -174,6 +174,15 @@
                 <div v-show="currentTab === 'info'" class="space-y-4">
                     <h2 class="text-xl font-bold text-yuzen-indigo mb-4 border-l-4 border-yuzen-red pl-2">實用資訊</h2>
                     
+                    <div class="bg-gray-100 p-4 rounded-xl border border-gray-200 mb-4 shadow-inner">
+                        <h3 class="font-bold mb-2 flex items-center text-gray-700"><i class="fas fa-key text-yuzen-yellow mr-2"></i>AI 導遊金鑰設定</h3>
+                        <p class="text-[11px] text-gray-500 mb-3 leading-relaxed">請輸入您的 Gemini API 金鑰以啟用即時 AI 導覽。此金鑰僅會保存在您當前設備的瀏覽器中，不會公開上傳至 GitHub，確保安全。</p>
+                        <div class="flex space-x-2">
+                            <input v-model="userApiKey" type="password" placeholder="輸入 API 金鑰 (AIzaSy...)" class="border border-gray-300 p-2 rounded w-full text-sm outline-none focus:border-yuzen-indigo">
+                            <button @click="saveApiKey" class="bg-yuzen-indigo text-white px-4 py-2 rounded text-sm font-bold hover:bg-opacity-90 transition whitespace-nowrap">儲存</button>
+                        </div>
+                    </div>
+
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                         <h3 class="font-bold mb-2 flex items-center text-yuzen-green"><i class="fas fa-exchange-alt mr-2"></i>匯率換算 (JPY to TWD)</h3>
                         <div class="flex items-center space-x-2">
@@ -339,6 +348,18 @@
                 const activeDayIndex = ref(0);
                 const calcJpy = ref('');
                 
+                // --- 新增：取得本機儲存的金鑰 ---
+                const userApiKey = ref(localStorage.getItem('gemini_api_key') || '');
+
+                const saveApiKey = () => {
+                    if (userApiKey.value.trim() === '') {
+                        alert('金鑰不能為空！');
+                        return;
+                    }
+                    localStorage.setItem('gemini_api_key', userApiKey.value.trim());
+                    alert('API 金鑰已成功儲存於您的設備中！');
+                };
+                
                 // 彈窗與 AI 狀態
                 const guideModal = ref(false);
                 const selectedItem = ref(null);
@@ -490,92 +511,52 @@
                 const openGoogleMap = (item) => window.open(`https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(item.title)}`, '_blank');
 
                 /* === RAG / LLM 生成架構實作 === */
-                // API 申請免費請至: Google AI Studio (https://aistudio.google.com/)
-                const GEMINI_API_KEY = "AQ.Ab8RN6KLX53h47evzsek0qK7VmB6Ko3YgKnG6LxZXWTHthoZlg"; // <--- 如果你有申請，貼在這裡
                 
                 const openGuide = async (item) => {
+                    // --- 檢查金鑰是否存在 ---
+                    if (!userApiKey.value) {
+                        alert('請先至「資訊」分頁設定 Gemini API 金鑰，才能啟用 AI 導遊功能！');
+                        currentTab.value = 'info';
+                        return;
+                    }
+
                     selectedItem.value = item;
                     guideModal.value = true;
                     isGuideLoading.value = true;
                     aiGuideContent.value = '';
 
                     try {
-                        if (GEMINI_API_KEY) {
-                            // 真實 LLM 呼叫 (模擬 RAG 流程: 傳入地名要求生成深度知識與推薦)
-                            const prompt = item.category === '景點' 
-                                ? `你是一個日本專業導遊。請根據景點「${item.title}」，產出以下三段 HTML 格式的解說：
-                                   1. <div class="bg-gray-50 p-4 rounded-xl mb-4"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">景點介紹</h4><p class="text-sm">...</p></div>
-                                   2. <div class="bg-blue-50 p-4 rounded-xl mb-4"><h4 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">歷史與冷知識</h4><p class="text-sm">...</p></div>
-                                   3. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">...</p></div>`
-                                : `你是一個日本美食專家。請根據餐廳/地點「${item.title}」，產出以下格式的 HTML：
-                                   1. <span class="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold mb-3 inline-block">餐廳/美食類型標籤</span>
-                                   2. <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">餐廳簡介</h4><p class="text-sm">...</p></div>
-                                   3. <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100"><h4 class="font-bold text-orange-800 mb-2"><i class="fas fa-utensils mr-1"></i>老饕推薦菜單</h4><ul class="list-disc list-inside text-sm font-bold text-gray-700"><li>推薦菜1：說明</li></ul></div>
-                                   4. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">排隊或預約建議...</p></div>`;
+                        // 使用者輸入的金鑰 (從 localStorage 讀取)
+                        const key = userApiKey.value;
 
-                            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                            });
-                            const data = await response.json();
-                            aiGuideContent.value = data.candidates[0].content.parts[0].text.replace(/```html|```/g, '');
-                        } else {
-                            // 若無 API Key，使用預設精美假資料展示排版
-                            await new Promise(resolve => setTimeout(resolve, 1500)); // 模擬等待時間
-                            aiGuideContent.value = getMockGuideContent(item);
+                        const prompt = item.category === '景點' 
+                            ? `你是一個日本專業導遊。請根據景點「${item.title}」，產出以下三段 HTML 格式的解說：
+                               1. <div class="bg-gray-50 p-4 rounded-xl mb-4"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">景點介紹</h4><p class="text-sm">...</p></div>
+                               2. <div class="bg-blue-50 p-4 rounded-xl mb-4"><h4 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">歷史與冷知識</h4><p class="text-sm">...</p></div>
+                               3. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">...</p></div>`
+                            : `你是一個日本美食專家。請根據餐廳/地點「${item.title}」，產出以下格式的 HTML：
+                               1. <span class="bg-orange-100 text-orange-600 px-2 py-1 rounded text-xs font-bold mb-3 inline-block">餐廳/美食類型標籤</span>
+                               2. <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">餐廳簡介</h4><p class="text-sm">...</p></div>
+                               3. <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100"><h4 class="font-bold text-orange-800 mb-2"><i class="fas fa-utensils mr-1"></i>老饕推薦菜單</h4><ul class="list-disc list-inside text-sm font-bold text-gray-700"><li>推薦菜1：說明</li></ul></div>
+                               4. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">排隊或預約建議...</p></div>`;
+
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('API 金鑰無效或額度耗盡');
                         }
+
+                        const data = await response.json();
+                        aiGuideContent.value = data.candidates[0].content.parts[0].text.replace(/```html|```/g, '');
+                        
                     } catch (err) {
-                        aiGuideContent.value = `<div class="p-4 bg-red-50 text-red-600 rounded">AI 導遊暫時休息中，請稍後再試。</div>`;
+                        console.error(err);
+                        aiGuideContent.value = `<div class="p-4 bg-red-50 text-red-600 rounded text-sm font-bold"><i class="fas fa-exclamation-triangle mr-2"></i>AI 導遊連線失敗。請確認您在「資訊」分頁設定的 API 金鑰是否正確。</div>`;
                     } finally {
                         isGuideLoading.value = false;
-                    }
-                };
-
-                // 備用靜態資料 (符合要求的精美版型)
-                const getMockGuideContent = (item) => {
-                    if (item.category === '美食') {
-                        return `
-                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-bold mb-3 inline-block"><i class="fas fa-fire mr-1"></i> 飛驒牛燒肉名店</span>
-                            <div class="flex items-center text-sm mb-4">
-                                <span class="text-yellow-500 mr-1"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></span>
-                                <span class="text-gray-500 ml-1">4.6 (Google 評價)</span>
-                            </div>
-                            <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm">
-                                <h4 class="font-bold text-gray-800 mb-2 border-b pb-1">餐廳簡介</h4>
-                                <p class="text-sm text-gray-600">由當地的肉類批發商直營，主打A5等級的頂級飛驒牛。因為是產地直送，能以極高的 C/P 值享受到油花如大理石般美麗的黑毛和牛，是高山市極具代表性的必吃餐廳。</p>
-                            </div>
-                            <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100">
-                                <h4 class="font-bold text-orange-800 mb-2"><i class="fas fa-utensils mr-1"></i>老饕推薦菜單</h4>
-                                <ul class="space-y-2 text-sm text-gray-700">
-                                    <li class="flex justify-between border-b border-orange-200 border-dashed pb-1">
-                                        <span class="font-bold">✨ 飛驒牛拼盤 (味蔵盛り)</span><span class="text-orange-600">約 9,000円</span>
-                                    </li>
-                                    <li class="flex justify-between border-b border-orange-200 border-dashed pb-1">
-                                        <span class="font-bold">✨ 特上厚切牛舌</span><span class="text-orange-600">約 2,800円</span>
-                                    </li>
-                                    <li class="flex justify-between pb-1">
-                                        <span class="font-bold">✨ 石鍋拌飯</span><span class="text-orange-600">約 1,000円</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                <h4 class="font-bold text-yellow-800 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4>
-                                <p class="text-sm text-gray-600">晚餐時段通常需要排隊 1-2 小時。建議在下午 5 點開門前就先去門口填寫候位表，再去附近逛逛。</p>
-                            </div>`;
-                    } else {
-                        return `
-                            <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm">
-                                <h4 class="font-bold text-gray-800 mb-2 border-b pb-1">景點介紹</h4>
-                                <p class="text-sm text-gray-600">這裡保留了最濃郁的日本傳統風情，漫步在被登錄為文化財的古老建築群中，彷彿穿越時空。四季皆有不同美景，是北陸之旅不可錯過的精華。</p>
-                            </div>
-                            <div class="bg-blue-50 p-4 rounded-xl mb-4 border border-blue-100">
-                                <h4 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1"><i class="fas fa-book-open mr-1"></i>歷史與冷知識</h4>
-                                <p class="text-sm text-gray-700">你知道嗎？這裡的建築設計為了適應北陸冬季的豪雪，屋頂結構採用了特殊的工法。另外，當地傳統吉祥物「猿寶寶 (Sarubobo)」原本是沒有五官的，為了讓收到護身符的人可以投射自己的情緒在上面。</p>
-                            </div>
-                            <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                <h4 class="font-bold text-yellow-800 mb-1"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4>
-                                <p class="text-sm text-gray-600">建議早上 9 點前抵達，避開觀光人潮，拍照光線最好！記得在入口處拿取中文導覽圖，有詳細的洗手間位置。</p>
-                            </div>`;
                     }
                 };
 
@@ -613,6 +594,7 @@
 
                 return {
                     appReady, loadingProgress, currentTab, activeDayIndex, calcJpy,
+                    userApiKey, saveApiKey, // <--- 匯出金鑰相關變數供 HTML 綁定
                     guideModal, selectedItem, isGuideLoading, aiGuideContent, editModal, expenseModal, editingItem, newExpense,
                     hotels, itinerary, currentDateInfo, currentItineraryItems, expenses, totalExpenses, sortableList,
                     weatherCityName, hourlyForecast, openGoogleMap, openGuide,
