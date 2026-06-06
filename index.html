@@ -59,7 +59,7 @@
     <div id="app" class="relative min-h-screen max-w-md mx-auto bg-white shadow-xl overflow-hidden">
         
         <div v-if="!appReady" id="loading-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black" :class="{'bg-white': loadingProgress > 50}">
-            <img src="開啟畫面.PNG" alt="Loading" class="w-2/3 object-contain mb-8 transition-all duration-1000" :class="{'invert': loadingProgress > 50}">
+            <img src="開啟畫面.PNG" alt="Loading" class="w-2/3 object-contain mb-8 transition-all duration-1000" :class="{'invert': loadingProgress > 50}" onerror="this.style.display='none'">
             <div class="w-2/3 bg-gray-300 h-2 rounded-full overflow-hidden">
                 <div class="bg-yuzen-red h-full transition-all duration-300" :style="`width: ${loadingProgress}%`"></div>
             </div>
@@ -80,7 +80,6 @@
             <div class="header-curve p-4 pb-24 shadow-[0_-10px_20px_rgba(0,0,0,0.1)] transition-colors duration-500" :style="`background-color: ${currentDateInfo.bgColor}`">
                 
                 <div v-show="currentTab === 'itinerary'">
-                    
                     <div class="flex overflow-x-auto hide-scrollbar mb-4 pb-2 border-b border-gray-200">
                         <div v-for="(day, index) in itinerary" :key="index" @click="activeDayIndex = index" class="flex flex-col items-center justify-center min-w-[60px] mx-1 py-1 cursor-pointer date-tab" :class="{'active': activeDayIndex === index}">
                             <span class="text-xs uppercase">{{ day.dayOfWeek }}</span>
@@ -175,10 +174,19 @@
                     <h2 class="text-xl font-bold text-yuzen-indigo mb-4 border-l-4 border-yuzen-red pl-2">實用資訊</h2>
                     
                     <div class="bg-gray-100 p-4 rounded-xl border border-gray-200 mb-4 shadow-inner">
-                        <h3 class="font-bold mb-2 flex items-center text-gray-700"><i class="fas fa-key text-yuzen-yellow mr-2"></i>AI 導遊金鑰設定</h3>
-                        <p class="text-[11px] text-gray-500 mb-3 leading-relaxed">請輸入您的 Gemini API 金鑰以啟用即時 AI 導覽。此金鑰僅會保存在您當前設備的瀏覽器中，不會公開上傳至 GitHub，確保安全。</p>
+                        <h3 class="font-bold mb-2 flex items-center text-gray-700"><i class="fas fa-lock text-yuzen-red mr-2"></i>雲端同步密碼設定</h3>
+                        <p class="text-[11px] text-gray-500 mb-3 leading-relaxed">請輸入通關密碼以載入或同步您的雲端行程資料。密碼錯誤將無法讀寫。</p>
                         <div class="flex space-x-2">
-                            <input v-model="userApiKey" type="password" placeholder="輸入 API 金鑰 (AIzaSy...)" class="border border-gray-300 p-2 rounded w-full text-sm outline-none focus:border-yuzen-indigo">
+                            <input v-model="appPassword" type="password" placeholder="輸入通關密碼" class="border border-gray-300 p-2 rounded w-full text-sm outline-none focus:border-yuzen-red">
+                            <button @click="savePasswordAndLoad" class="bg-yuzen-red text-white px-4 py-2 rounded text-sm font-bold hover:bg-opacity-90 transition whitespace-nowrap">登入/載入</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-100 p-4 rounded-xl border border-gray-200 mb-4 shadow-inner">
+                        <h3 class="font-bold mb-2 flex items-center text-gray-700"><i class="fas fa-key text-yuzen-yellow mr-2"></i>AI 導遊金鑰設定</h3>
+                        <p class="text-[11px] text-gray-500 mb-3 leading-relaxed">請輸入您的 Gemini API 金鑰以啟用即時 AI 導覽。此金鑰僅保存在當前設備中。</p>
+                        <div class="flex space-x-2">
+                            <input v-model="userApiKey" type="password" placeholder="輸入 API 金鑰" class="border border-gray-300 p-2 rounded w-full text-sm outline-none focus:border-yuzen-indigo">
                             <button @click="saveApiKey" class="bg-yuzen-indigo text-white px-4 py-2 rounded text-sm font-bold hover:bg-opacity-90 transition whitespace-nowrap">儲存</button>
                         </div>
                     </div>
@@ -342,15 +350,18 @@
 
         createApp({
             setup() {
+                // --- 雲端資料庫設定 (❗請替換為你的 Firebase 網址) ---
+                const FIREBASE_URL = 'https://travel-guide-24eb2-default-rtdb.asia-southeast1.firebasedatabase.app'; 
+                const appPassword = ref(localStorage.getItem('trip_password') || '');
+                let syncTimeout = null;
+
                 const appReady = ref(false);
                 const loadingProgress = ref(0);
                 const currentTab = ref('itinerary');
                 const activeDayIndex = ref(0);
                 const calcJpy = ref('');
                 
-                // --- 取得本機儲存的金鑰 ---
                 const userApiKey = ref(localStorage.getItem('gemini_api_key') || '');
-
                 const saveApiKey = () => {
                     if (userApiKey.value.trim() === '') {
                         alert('金鑰不能為空！');
@@ -359,21 +370,80 @@
                     localStorage.setItem('gemini_api_key', userApiKey.value.trim());
                     alert('API 金鑰已成功儲存於您的設備中！');
                 };
+
+                // --- 雲端資料載入 ---
+                const loadFromCloud = async () => {
+                    if (!appPassword.value) return;
+                    try {
+                        const res = await fetch(`${FIREBASE_URL}/trips/${appPassword.value}.json`);
+                        if (!res.ok) {
+                            if (res.status === 401 || res.status === 403) throw new Error('密碼錯誤，無權限存取！');
+                            throw new Error('網路錯誤，請稍後再試');
+                        }
+                        const cloudData = await res.json();
+                        if (cloudData) {
+                            if (cloudData.itinerary) itinerary.value = cloudData.itinerary;
+                            if (cloudData.expenses) expenses.value = cloudData.expenses;
+                            alert('✅ 雲端資料載入成功！');
+                        } else {
+                            alert('這是新的專屬空間，目前尚無資料，將從本地預設資料開始。');
+                        }
+                    } catch (error) {
+                        alert(`❌ 載入失敗: ${error.message}`);
+                        console.error(error);
+                    }
+                };
+
+                const savePasswordAndLoad = () => {
+                    if (!appPassword.value.trim()) {
+                        alert('密碼不能為空！');
+                        return;
+                    }
+                    localStorage.setItem('trip_password', appPassword.value.trim());
+                    loadFromCloud();
+                };
+
+                // --- 雲端資料同步 (含 2 秒防抖) ---
+                const syncToCloud = () => {
+                    if (!appPassword.value) return;
+                    if (syncTimeout) clearTimeout(syncTimeout);
+                    
+                    syncTimeout = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`${FIREBASE_URL}/trips/${appPassword.value}.json`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    itinerary: itinerary.value,
+                                    expenses: expenses.value
+                                })
+                            });
+                            
+                            if (!res.ok) {
+                                console.error('雲端同步失敗，可能是密碼被更改或無權限');
+                            } else {
+                                console.log('資料已悄悄同步至雲端 ☁️ (防抖寫入)');
+                            }
+                        } catch (error) {
+                            console.error('雲端同步發生錯誤', error);
+                        }
+                    }, 2000);
+                };
                 
                 // 彈窗與 AI 狀態
                 const guideModal = ref(false);
                 const selectedItem = ref(null);
                 const isGuideLoading = ref(false);
                 const aiGuideContent = ref('');
+                
                 const editModal = ref(false);
                 const expenseModal = ref(false);
-                
                 const editingItem = ref({});
                 const newExpense = ref({ category: '飲食', name: '', amount: null, payment: '現金' });
+                
+                // 預設資料 (若雲端沒有資料則以此為基礎)
                 const expenses = ref([]);
                 const sortableList = ref(null);
-
-                // 天氣資訊
                 const weatherCityName = ref('載入中');
                 const hourlyForecast = ref([]);
 
@@ -441,16 +511,14 @@
                 const fetchWeatherData = async () => {
                     const loc = weatherLocations[activeDayIndex.value];
                     weatherCityName.value = loc.city;
-                    
                     try {
                         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&hourly=temperature_2m,weather_code&timezone=Asia%2FTokyo`);
                         const data = await res.json();
-                        
                         const now = new Date();
                         const currentHourStr = now.toISOString().slice(0, 14) + "00";
                         let startIndex = data.hourly.time.findIndex(t => t >= currentHourStr);
                         if (startIndex === -1) startIndex = 0;
-
+                        
                         hourlyForecast.value = data.hourly.time.slice(startIndex, startIndex + 24).map((timeStr, idx) => {
                             const code = data.hourly.weather_code[startIndex + idx];
                             let icon = 'fas fa-sun'; let iconColor = '#e8c918';
@@ -459,7 +527,6 @@
                             else if (code >= 51 && code <= 67) { icon = 'fas fa-cloud-showers-heavy'; iconColor = '#4299e1'; }
                             else if (code >= 71 && code <= 77) { icon = 'fas fa-snowflake'; iconColor = '#90cdf4'; }
                             else if (code >= 95) { icon = 'fas fa-bolt'; iconColor = '#ecc94b'; }
-
                             const hourObj = new Date(timeStr);
                             return {
                                 time: `${hourObj.getHours().toString().padStart(2, '0')}:00`,
@@ -473,8 +540,10 @@
                 };
 
                 watch(activeDayIndex, fetchWeatherData);
-
+                
                 onMounted(() => {
+                    if (appPassword.value) loadFromCloud(); // 自動嘗試載入雲端資料
+                    
                     fetchWeatherData();
                     let interval = setInterval(() => {
                         loadingProgress.value += Math.floor(Math.random() * 15) + 5;
@@ -494,6 +563,7 @@
                                 onEnd: (evt) => {
                                     const item = currentItineraryItems.value.splice(evt.oldIndex, 1)[0];
                                     currentItineraryItems.value.splice(evt.newIndex, 0, item);
+                                    syncToCloud(); // 拖曳結束後同步
                                 }
                             });
                         }
@@ -506,26 +576,33 @@
                 const getCategoryIcon = (cat) => ({ '景點': 'fas fa-camera', '美食': 'fas fa-utensils', '住宿': 'fas fa-bed', '交通': 'fas fa-bus', '航班': 'fas fa-plane' }[cat] || 'fas fa-map-pin');
                 const getExpenseIcon = (cat) => ({ '飲食': 'fas fa-hamburger text-orange-500', '交通': 'fas fa-train text-gray-600', '門票': 'fas fa-ticket-alt text-blue-500' }[cat] || 'fas fa-yen-sign');
                 const getExpenseIconColor = (cat) => ({ '飲食': 'bg-orange-100', '交通': 'bg-gray-200', '門票': 'bg-blue-100' }[cat] || 'bg-gray-100');
-
-                // 修正 Google Maps 導航連結
+                
                 const openGoogleMap = (item) => {
                     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title)}`;
                     window.open(mapUrl, '_blank');
                 };
 
-                /* === RAG / LLM 生成架構實作 === */
+                /* === RAG / LLM 生成與快取實作 === */
                 const openGuide = async (item) => {
-                    // --- 清除可能不小心複製到的空白 ---
-                    const key = userApiKey.value ? userApiKey.value.trim() : '';
-                    
-                    if (!key) {
-                        alert('請先至「資訊」分頁設定 Gemini API 金鑰，才能啟用 AI 導遊功能！');
-                        currentTab.value = 'info';
+                    selectedItem.value = item;
+                    guideModal.value = true;
+
+                    // 1. 檢查是否已經有快取內容，有就直接顯示
+                    if (item.aiContent) {
+                        aiGuideContent.value = item.aiContent;
+                        isGuideLoading.value = false;
                         return;
                     }
 
-                    selectedItem.value = item;
-                    guideModal.value = true;
+                    // 2. 若無快取，檢查 API Key
+                    const key = userApiKey.value ? userApiKey.value.trim() : '';
+                    if (!key) {
+                        alert('請先至「資訊」分頁設定 Gemini API 金鑰，才能啟用 AI 導遊功能！');
+                        currentTab.value = 'info';
+                        guideModal.value = false;
+                        return;
+                    }
+
                     isGuideLoading.value = true;
                     aiGuideContent.value = '';
 
@@ -540,8 +617,8 @@
                                2. <div class="bg-white border border-gray-100 p-4 rounded-xl mb-4 shadow-sm"><h4 class="font-bold text-gray-800 mb-2 border-b pb-1">餐廳簡介</h4><p class="text-sm">...</p></div>
                                3. <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100"><h4 class="font-bold text-orange-800 mb-2"><i class="fas fa-utensils mr-1"></i>老饕推薦菜單</h4><ul class="list-disc list-inside text-sm font-bold text-gray-700"><li>推薦菜1：說明</li></ul></div>
                                4. <div class="bg-yellow-50 p-4 rounded-xl"><h4 class="font-bold text-yellow-800 mb-2"><i class="fas fa-lightbulb text-yellow-500 mr-1"></i>導遊悄悄話</h4><p class="text-sm">排隊或預約建議...</p></div>`;
-
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key}`, {
+                        
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/Gemini%201.5%20Flash:generateContent?key=${key}`, {
                             method: 'POST', 
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -553,7 +630,13 @@
                         }
 
                         const data = await response.json();
-                        aiGuideContent.value = data.candidates[0].content.parts[0].text.replace(/```html|```/g, '');
+                        const resultHtml = data.candidates[0].content.parts[0].text.replace(/```html|```/g, '');
+                        
+                        aiGuideContent.value = resultHtml;
+                        
+                        // 3. 將生成的內容存入 item 快取中，並觸發同步
+                        item.aiContent = resultHtml;
+                        syncToCloud(); 
                         
                     } catch (err) {
                         console.error("Gemini API Error:", err);
@@ -562,9 +645,8 @@
                                 <h4 class="font-bold mb-2 flex items-center"><i class="fas fa-exclamation-triangle mr-2"></i>連線失敗</h4>
                                 <p class="text-sm mb-2 font-bold text-red-800">真實錯誤原因：<br><span class="font-mono text-xs bg-red-100 p-2 rounded block mt-1 break-all">${err.message}</span></p>
                                 <ul class="text-xs list-disc list-inside space-y-1 text-red-600">
-                                    <li>檢查金鑰是否完整 (不要複製到空白)。</li>
-                                    <li>檢查您是否真的有產生 API Key (需至 Google AI Studio)。</li>
-                                    <li>若出現 Failed to fetch，可能是您的網路環境或擴充功能阻擋了請求。</li>
+                                    <li>檢查金鑰是否完整。</li>
+                                    <li>檢查網路環境或擴充功能阻擋。</li>
                                 </ul>
                             </div>`;
                     } finally {
@@ -577,7 +659,9 @@
                     editingItem.value = item ? JSON.parse(JSON.stringify(item)) : { id: null, title: '', category: '景點', time: '10:00', transitType: 'walk', transitTime: 10 };
                     editModal.value = true;
                 };
+                
                 const editItem = (item) => openEditModal(item);
+                
                 const saveItem = () => {
                     if (!editingItem.value.title) return alert('請輸入名稱');
                     if (editingItem.value.id) {
@@ -589,24 +673,30 @@
                         currentItineraryItems.value.sort((a,b) => a.time.localeCompare(b.time));
                     }
                     editModal.value = false;
+                    syncToCloud(); // 儲存後同步
                 };
+                
                 const confirmDelete = () => {
                     if(confirm(`刪除「${editingItem.value.title}」？`)) {
                         const idx = currentItineraryItems.value.findIndex(i => i.id === editingItem.value.id);
                         if(idx > -1) currentItineraryItems.value.splice(idx, 1);
                         editModal.value = false;
+                        syncToCloud(); // 刪除後同步
                     }
                 };
+                
                 const saveExpense = () => {
                     if(!newExpense.value.name || !newExpense.value.amount) return alert('請填寫完整資訊');
                     expenses.value.unshift({ id: Date.now(), ...newExpense.value, date: `6/${itinerary.value[activeDayIndex.value].date}` });
                     newExpense.value = { category: '飲食', name: '', amount: null, payment: '現金' };
                     expenseModal.value = false;
+                    syncToCloud(); // 記帳後同步
                 };
 
                 return {
                     appReady, loadingProgress, currentTab, activeDayIndex, calcJpy,
                     userApiKey, saveApiKey, 
+                    appPassword, savePasswordAndLoad, // 新增的密碼綁定
                     guideModal, selectedItem, isGuideLoading, aiGuideContent, editModal, expenseModal, editingItem, newExpense,
                     hotels, itinerary, currentDateInfo, currentItineraryItems, expenses, totalExpenses, sortableList,
                     weatherCityName, hourlyForecast, openGoogleMap, openGuide,
